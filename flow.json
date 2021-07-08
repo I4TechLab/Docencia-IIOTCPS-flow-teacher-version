@@ -1,1 +1,188 @@
-[]
+[
+    {
+        "id": "32a6a7a3.c40e48",
+        "type": "tab",
+        "label": "Flow 1",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "c9c68a4.268aa78",
+        "type": "modbus-client",
+        "name": "Vibration_sensor",
+        "clienttype": "tcp",
+        "bufferCommands": true,
+        "stateLogEnabled": false,
+        "queueLogEnabled": false,
+        "tcpHost": "147.83.83.29",
+        "tcpPort": "20000",
+        "tcpType": "DEFAULT",
+        "serialPort": "/dev/ttyUSB",
+        "serialType": "RTU-BUFFERD",
+        "serialBaudrate": "9600",
+        "serialDatabits": "8",
+        "serialStopbits": "1",
+        "serialParity": "none",
+        "serialConnectionDelay": "100",
+        "unit_id": "1",
+        "commandDelay": "1",
+        "clientTimeout": "1000",
+        "reconnectOnTimeout": true,
+        "reconnectTimeout": "2000",
+        "parallelUnitIdsAllowed": true
+    },
+    {
+        "id": "e469104a.7c8a2",
+        "type": "influxdb",
+        "hostname": "172.16.238.2",
+        "port": "8086",
+        "protocol": "http",
+        "database": "database",
+        "name": "",
+        "usetls": false,
+        "tls": "",
+        "influxdbVersion": "1.x",
+        "url": "http://localhost:8086",
+        "rejectUnauthorized": true
+    },
+    {
+        "id": "952a0f28.0edfa",
+        "type": "inject",
+        "z": "32a6a7a3.c40e48",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 260,
+        "y": 280,
+        "wires": [
+            [
+                "1bcc1669.68890a"
+            ]
+        ]
+    },
+    {
+        "id": "baa42437.e70518",
+        "type": "modbus-flex-getter",
+        "z": "32a6a7a3.c40e48",
+        "name": "",
+        "showStatusActivities": false,
+        "showErrors": false,
+        "logIOActivities": false,
+        "server": "c9c68a4.268aa78",
+        "useIOFile": false,
+        "ioFile": "",
+        "useIOForPayload": false,
+        "emptyMsgOnFail": false,
+        "keepMsgProperties": false,
+        "x": 670,
+        "y": 280,
+        "wires": [
+            [],
+            [
+                "4e44727d.119b5c",
+                "6505c0d7.ea634"
+            ]
+        ]
+    },
+    {
+        "id": "1bcc1669.68890a",
+        "type": "function",
+        "z": "32a6a7a3.c40e48",
+        "name": "",
+        "func": "msg.payload = { \n    value: msg.payload, \n    'fc': 3, \n    'unitid': 1, \n    'address': 0 , \n    'quantity': 8 \n    } \nreturn msg",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "x": 440,
+        "y": 280,
+        "wires": [
+            [
+                "baa42437.e70518"
+            ]
+        ]
+    },
+    {
+        "id": "156e6568.f6a09b",
+        "type": "debug",
+        "z": "32a6a7a3.c40e48",
+        "name": "Influx",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1090,
+        "y": 420,
+        "wires": []
+    },
+    {
+        "id": "6505c0d7.ea634",
+        "type": "function",
+        "z": "32a6a7a3.c40e48",
+        "name": "",
+        "func": "let data1 = [msg.payload.data[0], msg.payload.data[1]];\nlet data2 = [msg.payload.data[2], msg.payload.data[3]];\nlet data3 = [msg.payload.data[4], msg.payload.data[5]];\nlet data4 = [msg.payload.data[6], msg.payload.data[7]];\n\nvar bytes1 = new Uint16Array(data1);\nvar bytes2 = new Uint16Array(data2);\nvar bytes3 = new Uint16Array(data3);\nvar bytes4 = new Uint16Array(data4);\n\nlet view1 = new DataView(bytes1.buffer);\nlet view2 = new DataView(bytes2.buffer);\nlet view3 = new DataView(bytes3.buffer);\nlet view4 = new DataView(bytes4.buffer);\n\nvar datosAnterior = flow.get(\"datoAnterior\");\nif(msg.payload.data[0] == datosAnterior[0]){\n    return;\n}\nelse{\n    flow.set(\"datoAnterior\", msg.payload.data);\n    let param1 = view1.getFloat32(0, true);\n    let param2 = view2.getFloat32(0, true);\n    let param3 = view3.getFloat32(0, true);\n    let param4 = view4.getFloat32(0, true);\n    let param5 = param1*param1;\n    msg.payload = [\n        {\n            measurement: \"Vibration\",\n            fields: {\n                rms: param1,\n                mean: param2,\n                skewness: param3,\n                kurtosis: param4,\n                square: param5\n            },\n            tags:{}\n        }\n    ];\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "// Code added here will be run once\n// whenever the node is deployed.\nflow.set(\"datoAnterior\",[0,0,0,0,0,0,0,0]);",
+        "finalize": "",
+        "x": 880,
+        "y": 320,
+        "wires": [
+            [
+                "156e6568.f6a09b",
+                "3cf37430.28b2ec"
+            ]
+        ]
+    },
+    {
+        "id": "4e44727d.119b5c",
+        "type": "debug",
+        "z": "32a6a7a3.c40e48",
+        "name": "Modbus",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 920,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "3cf37430.28b2ec",
+        "type": "influxdb batch",
+        "z": "32a6a7a3.c40e48",
+        "influxdb": "e469104a.7c8a2",
+        "precision": "",
+        "retentionPolicy": "",
+        "name": "Influx Database",
+        "database": "",
+        "retentionPolicyV18Flux": "",
+        "org": "",
+        "bucket": "",
+        "x": 1100,
+        "y": 260,
+        "wires": []
+    }
+]
